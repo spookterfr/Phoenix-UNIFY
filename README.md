@@ -15,6 +15,3 @@ Repository for the app made to unify all 4 apps commonly used by PCA students.
 ## the rest
 
 As i'm writing this, I realize nobody is gonna see this, huh. Ah well, good habit to have, I suppose.
-
-# Project: UNIFY
-Repository for the app made to unify all 4 apps commonly used by PCA students.
