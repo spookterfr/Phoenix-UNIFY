@@ -8,7 +8,7 @@ Repository for the app made to unify all 3 apps commonly used by PCA students.
 
 - [@spookterfr (Seth)](https://github.com/spookterfr)
 - [@Nicholas (Jarett)](https://github.com/Nicholaso330)
-- Stefan Lazic
+- [@The AT-AT Pilot](https://github.com/TheAT-ATpilot)
 - Adrian Adame Butanda
 
 
