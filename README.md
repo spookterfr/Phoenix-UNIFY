@@ -1,2 +1,20 @@
+
+# Project: UNIFY
+
+Repository for the app made to unify all 4 apps commonly used by PCA students.
+
+
+## Authors
+
+- [@spookterfr (Seth)](https://github.com/spookterfr)
+- [@Nicholas (Jarett)](https://github.com/Nicholaso330)
+- Stefan Lazic
+- Adrian Adame Butanda
+
+
+## the rest
+
+As i'm writing this, I realize nobody is gonna see this, huh. Ah well, good habit to have, I suppose.
+
 # Project: UNIFY
 Repository for the app made to unify all 4 apps commonly used by PCA students.
