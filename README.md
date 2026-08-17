@@ -13,7 +13,7 @@ Repository for the app made to unify all 4 apps commonly used by PCA students.
 
 ## And the Apps?
 
-We currently (as of 8/13/26) are working to replace StudenVue, Outlook, Valley Metro and Nutrislice.
+We currently (as of 8/13/26) are working to replace StudenVue, Valley Metro and Nutrislice.
 
 ## Why?
 
@@ -22,7 +22,3 @@ We are making one **unified** app for the 4 above:
 **1.** Because we are tired of how slow and inefficient the apps are. 
 
 **2.** Because it would be MUCH more convenient to have all of these essential apps in one, as opposed to scattered around and probably unused.
-
-## the rest
-
-As i'm writing this, I realize nobody is gonna see this, huh. Ah well, good habit to have, I suppose.
