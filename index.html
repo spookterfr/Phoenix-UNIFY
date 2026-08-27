@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+
+<!-- iOS "Add to Home Screen" support: these three tags are what make it
+     launch as a standalone app (no Safari chrome, no URL bar) instead of
+     opening in a normal Safari tab. -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Nav Demo" />
+<meta name="theme-color" content="#5aa0c2" />
+
+<title>Liquid glass nav</title>
+<style>
+  * { box-sizing: border-box; -webkit-touch-callout: none; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    overscroll-behavior: none; /* stops the rubber-band bounce from showing blank space at the edges in standalone mode */
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+    color: #172033;
+    background: linear-gradient(135deg, hwb(199 40% 31%) 0%, hsl(199, 43%, 61%) 45%, hsl(199, 43%, 61%) 100%);
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .layout {
+    min-height: 100vh;
+    padding: calc(24px + env(safe-area-inset-top)) 24px calc(150px + env(safe-area-inset-bottom));
+  }
+  .content { max-width: 1100px; margin: 0 auto; }
+  .page { padding: 32px 0; }
+  .page h1 { margin: 0 0 12px; font-size: clamp(32px, 7vw, 56px); line-height: 1; letter-spacing: -0.05em; }
+  .page p { margin: 0; color: rgba(23, 32, 51, 0.65); font-size: 18px; }
+  .hint { margin-top: 28px; font-size: 14px; color: rgba(23,32,51,0.55); max-width: 440px; }
+  .grid-bg {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.15) 0 1px, transparent 1px 40px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.15) 0 1px, transparent 1px 40px);
+  }
+
+  .bottom-nav-group {
+    position: fixed; z-index: 100; left: 50%;
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    width: min(650px, calc(100% - 32px));
+    display: flex; align-items: stretch; gap: 10px;
+  }
+
+  .bottom-nav {
+    flex: 1 1 auto; min-width: 0;
+    padding: 8px;
+    background: rgba(255,255,255,0.42); border: 1px solid rgba(255,255,255,0.7); border-radius: 24px;
+    backdrop-filter: blur(30px) saturate(170%); -webkit-backdrop-filter: blur(30px) saturate(170%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.9), inset 0 -1px 1px rgba(255,255,255,0.2), 0 15px 40px rgba(70,130,160,0.2);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .home-button {
+    flex: 0 0 auto; width: 64px; height: 64px;
+    display: flex; justify-content: center; align-items: center;
+    border: 1px solid rgba(255,255,255,0.7); border-radius: 50%;
+    color: rgba(23,32,51,0.6); background: rgba(255,255,255,0.42);
+    font: inherit; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap;
+    backdrop-filter: blur(30px) saturate(170%); -webkit-backdrop-filter: blur(30px) saturate(170%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.9), inset 0 -1px 1px rgba(255,255,255,0.2), 0 15px 40px rgba(70,130,160,0.2);
+    cursor: pointer; -webkit-user-select: none; user-select: none;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .home-button:hover { color: #172033; background: rgba(255,255,255,0.55); }
+  .home-button.active {
+    color: #172033; background: rgba(255,255,255,0.7);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), 0 4px 15px rgba(70,130,160,0.18);
+  }
+  .home-button:active { transform: scale(0.94); }
+
+  .nav-inner { position: relative; display: flex; gap: 6px; touch-action: none; }
+  .nav-item {
+    position: relative; z-index: 2; flex: 1; display: flex; justify-content: center; align-items: center;
+    border: 0; border-radius: 17px; padding: 13px 10px;
+    color: rgba(23,32,51,0.6); background: transparent;
+    font: inherit; font-size: 14px; font-weight: 600; text-decoration: none;
+    cursor: pointer; -webkit-user-select: none; user-select: none;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .nav-item:hover { color: #172033; background: rgba(255,255,255,0.3); }
+  .nav-item.active { color: #172033; background: rgba(255,255,255,0.55); box-shadow: inset 0 1px 1px rgba(255,255,255,0.9), 0 4px 15px rgba(70,130,160,0.12); }
+  .nav-item:active { transform: scale(0.94); }
+
+  .glass-indicator {
+    position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 1;
+    border-radius: 17px; opacity: 0; pointer-events: none; transform-origin: center;
+    background: linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.32) 50%, rgba(255,255,255,0.58) 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), inset 0 -1px 2px rgba(255,255,255,0.25), inset 0 0 0 1px rgba(255,255,255,0.55), 0 10px 24px rgba(70,130,160,0.28);
+    backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+    transition: opacity 0.15s ease;
+  }
+  .glass-indicator::before {
+    content: ""; position: absolute; inset: -2px; border-radius: inherit; opacity: 0; pointer-events: none;
+    background: conic-gradient(from 210deg at 50% 42%,
+      rgba(255,90,140,0.4) 0deg, rgba(255,205,90,0.32) 55deg, rgba(140,255,190,0.28) 130deg,
+      rgba(100,180,255,0.34) 210deg, rgba(195,130,255,0.32) 290deg, rgba(255,90,140,0.4) 360deg);
+    mix-blend-mode: color-dodge;
+    filter: blur(3px);
+    transition: opacity 0.25s ease;
+  }
+  .glass-indicator::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: radial-gradient(46px 34px at var(--hl-x, 50%) 0%, rgba(255,255,255,0.85), rgba(255,255,255,0) 70%);
+    mix-blend-mode: overlay;
+  }
+  .glass-indicator.dragging { opacity: 1; }
+
+  .glass-indicator.lens {
+    border-radius: 30%;
+    backdrop-filter: blur(10px) saturate(220%) brightness(1.08);
+    -webkit-backdrop-filter: blur(10px) saturate(220%) brightness(1.08);
+    backdrop-filter: url(#liquid-glass-distortion) blur(2px) saturate(200%) brightness(1.1);
+    background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.08) 45%, rgba(255,255,255,0.3) 100%);
+    box-shadow: inset 0 2px 2px rgba(255,255,255,0.9), inset 0 -2px 3px rgba(255,255,255,0.2), inset 0 0 0 1px rgba(255,255,255,0.6), 0 18px 36px rgba(20,60,90,0.35);
+  }
+  .glass-indicator.lens::before { opacity: 0.85; }
+  .glass-indicator.snapping {
+    opacity: 1;
+    transition:
+      left 0.42s cubic-bezier(0.34,1.56,0.64,1),
+      top 0.42s cubic-bezier(0.34,1.56,0.64,1),
+      width 0.42s cubic-bezier(0.34,1.56,0.64,1),
+      height 0.42s cubic-bezier(0.34,1.56,0.64,1),
+      border-radius 0.3s ease,
+      transform 0.3s cubic-bezier(0.34,1.56,0.64,1),
+      opacity 0.25s ease 0.2s;
+  }
+  .bottom-nav.holding {
+    transform: scale(1.015);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.9), inset 0 -1px 1px rgba(255,255,255,0.2), 0 20px 46px rgba(70,130,160,0.3);
+  }
+
+  @media (max-width: 600px) {
+    .layout {
+      padding: calc(12px + env(safe-area-inset-top)) 12px calc(100px + env(safe-area-inset-bottom));
+    }
+    .page { padding: 32px 24px; }
+    .bottom-nav-group {
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      width: calc(100% - 24px);
+    }
+    .home-button { width: 52px; height: 52px; font-size: 11px; }
+    .nav-item { font-size: 12px; padding: 12px 5px; }
+  }
+</style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="layout">
+    <main class="content">
+      <section class="page">
+        <h1 id="pageTitle">Home</h1>
+        <p id="pageBody">Welcome to the home page.</p>
+        <p class="hint">Add this to your Home Screen (Share → Add to Home Screen) and it will launch full-screen, without Safari's URL bar — because it's all one page, switching tabs never triggers a real navigation.</p>
+      </section>
+    </main>
+    <nav class="bottom-nav-group">
+      <a class="home-button active" href="#home" data-title="Home" data-body="Welcome to the home page.">home</a>
+      <div class="bottom-nav">
+        <div class="nav-inner">
+          <a class="nav-item" href="#test-1" data-title="Test 1" data-body="This is the first test page.">test</a>
+          <a class="nav-item" href="#test-2" data-title="Test 2" data-body="This is the second test page.">test</a>
+          <a class="nav-item" href="#test-3" data-title="Test 3" data-body="This is the third test page.">test</a>
+          <a class="nav-item" href="#test-4" data-title="Test 4" data-body="This is the fourth test page.">test</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+
+  <svg aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden;">
+    <filter id="liquid-glass-distortion" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.05" numOctaves="2" seed="4" result="noise"/>
+      <feGaussianBlur in="noise" stdDeviation="3" result="softNoise"/>
+      <feDisplacementMap in="SourceGraphic" in2="softNoise" scale="34" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
+
+<script>
+const navInner = document.querySelector(".nav-inner");
+const bottomNav = document.querySelector(".bottom-nav");
+const homeButton = document.querySelector(".home-button");
+const navItems = Array.from(document.querySelectorAll(".nav-item"));
+const allLinks = [homeButton, ...navItems];
+const pageTitle = document.getElementById("pageTitle");
+const pageBody = document.getElementById("pageBody");
+
+// Swap content in place and update the hash with replaceState, so the
+// "page" is bookmarkable/restorable on reload but never causes the browser
+// to do a real navigation (which is what would flash the URL bar back in
+// on an iOS home-screen app).
+function setActive(item, pushHistory) {
+  allLinks.forEach((i) => i.classList.remove("active"));
+  item.classList.add("active");
+  pageTitle.textContent = item.dataset.title;
+  pageBody.textContent = item.dataset.body;
+  if (pushHistory !== false) {
+    const hash = item.getAttribute("href");
+    if (history.replaceState) history.replaceState(null, "", hash);
+  }
+}
+
+function activateFromHash() {
+  const hash = window.location.hash || "#home";
+  const match = allLinks.find((l) => l.getAttribute("href") === hash);
+  setActive(match || homeButton, false);
+}
+activateFromHash();
+window.addEventListener("hashchange", activateFromHash);
+
+homeButton.addEventListener("click", (e) => {
+  e.preventDefault();
+  setActive(homeButton);
+});
+
+function syncHomeButtonSize() {
+  const h = bottomNav.getBoundingClientRect().height;
+  if (h > 0) {
+    homeButton.style.width = h + "px";
+    homeButton.style.height = h + "px";
+  }
+}
+syncHomeButtonSize();
+requestAnimationFrame(syncHomeButtonSize);
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(syncHomeButtonSize);
+}
+window.addEventListener("resize", syncHomeButtonSize);
+window.addEventListener("orientationchange", syncHomeButtonSize);
+
+const indicator = document.createElement("div");
+indicator.className = "glass-indicator";
+navInner.appendChild(indicator);
+
+const DRAG_THRESHOLD = 6, EASE = 0.22, MAGNETISM = 0.15, SQUISH_K = 0.012, SQUISH_MAX = 0.22;
+let pointerId = null, dragging = false, lensMode = false, moved = false;
+let startX = 0, startY = 0, pointerX = 0, lastCenter = null, targetItem = null;
+let lensW = 0, lensH = 0, rowCenterY = 0, current = { x: 0, y: 0, w: 0, h: 0 }, rafId = null;
+
+const navRect = () => navInner.getBoundingClientRect();
+
+const rectFor = (item) => {
+  const ir = item.getBoundingClientRect();
+  const pr = navRect();
+  return { x: ir.left - pr.left, y: ir.top - pr.top, w: ir.width, h: ir.height };
+};
+
+const itemAtX = (x) => {
+  const pr = navRect();
+  let best = navItems[0], bestDist = Infinity;
+  navItems.forEach((item) => {
+    const ir = item.getBoundingClientRect();
+    const left = ir.left - pr.left;
+    const center = left + ir.width / 2;
+    const dist = Math.abs(x - center);
+    if (dist < bestDist) { bestDist = dist; best = item; }
+  });
+  return best;
+};
+
+const placeIndicator = (rect) => {
+  indicator.style.left = rect.x + "px";
+  indicator.style.top = rect.y + "px";
+  indicator.style.width = rect.w + "px";
+  indicator.style.height = rect.h + "px";
+};
+
+const tick = () => {
+  if (!dragging) return;
+
+  if (lensMode) {
+    const nearest = itemAtX(pointerX);
+    targetItem = nearest;
+    const nr = rectFor(nearest);
+    const nearestCenter = nr.x + nr.w / 2;
+
+    const desiredCenter = pointerX * (1 - MAGNETISM) + nearestCenter * MAGNETISM;
+    const maxX = Math.max(navRect().width - lensW, 0);
+    const desiredX = Math.min(Math.max(desiredCenter - lensW / 2, 0), maxX);
+    const desiredY = rowCenterY - lensH / 2;
+
+    const velocity = lastCenter === null ? 0 : desiredCenter - lastCenter;
+    lastCenter = desiredCenter;
+
+    current.x += (desiredX - current.x) * EASE;
+    current.y += (desiredY - current.y) * EASE;
+    current.w += (lensW - current.w) * EASE;
+    current.h += (lensH - current.h) * EASE;
+
+    const squish = Math.min(Math.abs(velocity) * SQUISH_K, SQUISH_MAX);
+    const stretchX = 1 + squish;
+    const stretchY = 1 - squish * 0.7;
+    const hl = ((pointerX - current.x) / current.w) * 100;
+
+    indicator.style.left = current.x + "px";
+    indicator.style.top = current.y + "px";
+    indicator.style.width = current.w + "px";
+    indicator.style.height = current.h + "px";
+    indicator.style.transform = "scale(" + stretchX + ", " + stretchY + ")";
+    indicator.style.setProperty("--hl-x", hl + "%");
+  }
+
+  rafId = requestAnimationFrame(tick);
+};
+
+const beginDrag = (item) => {
+  const r = rectFor(item);
+  current = { x: r.x, y: r.y, w: r.w, h: r.h };
+  targetItem = item;
+  lensMode = false;
+  lastCenter = null;
+
+  const rowH = navRect().height;
+  rowCenterY = rowH / 2;
+  lensH = Math.max(rowH * 1.45, r.h * 1.3);
+  lensW = lensH * 1.35;
+
+  indicator.classList.remove("snapping", "lens");
+  indicator.style.opacity = "";
+  indicator.style.borderRadius = "17px";
+  indicator.style.transform = "scale(1, 1)";
+  placeIndicator(current);
+  indicator.classList.add("dragging");
+
+  bottomNav.classList.add("holding");
+  rafId = requestAnimationFrame(tick);
+};
+
+const cancelDrag = () => {
+  dragging = false;
+  lensMode = false;
+  if (rafId) cancelAnimationFrame(rafId);
+  indicator.classList.remove("dragging", "snapping", "lens");
+  indicator.style.opacity = "0";
+  bottomNav.classList.remove("holding");
+  targetItem = null;
+};
+
+const finishDrag = () => {
+  dragging = false;
+  lensMode = false;
+  if (rafId) cancelAnimationFrame(rafId);
+  indicator.classList.remove("dragging", "lens");
+  bottomNav.classList.remove("holding");
+
+  if (!targetItem) return;
+
+  const r = rectFor(targetItem);
+  indicator.classList.add("snapping");
+  indicator.style.transform = "scale(1, 1)";
+  indicator.style.borderRadius = "17px";
+  indicator.style.left = r.x + "px";
+  indicator.style.top = r.y + "px";
+  indicator.style.width = r.w + "px";
+  indicator.style.height = r.h + "px";
+
+  const chosen = targetItem;
+  window.setTimeout(() => {
+    indicator.classList.remove("snapping");
+    indicator.style.opacity = "0";
+    setActive(chosen);
+  }, 280);
+
+  targetItem = null;
+};
+
+navInner.addEventListener("pointerdown", (e) => {
+  const item = e.target.closest(".nav-item");
+  if (!item) return;
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  pointerId = e.pointerId;
+  startX = e.clientX; startY = e.clientY;
+  pointerX = e.clientX - navRect().left;
+  moved = false; dragging = true;
+  beginDrag(item);
+});
+
+navInner.addEventListener("pointermove", (e) => {
+  if (!dragging || e.pointerId !== pointerId) return;
+  const dx = e.clientX - startX, dy = e.clientY - startY;
+  if (!moved && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+    moved = true;
+    lensMode = true;
+    indicator.classList.add("lens");
+    indicator.style.borderRadius = "";
+    if (navInner.setPointerCapture) navInner.setPointerCapture(pointerId);
+  }
+  if (moved) e.preventDefault();
+  pointerX = e.clientX - navRect().left;
+});
+
+const onPointerUp = (e) => {
+  if (e.pointerId !== pointerId || !dragging) return;
+  if (navInner.hasPointerCapture && navInner.hasPointerCapture(pointerId)) {
+    navInner.releasePointerCapture(pointerId);
+  }
+  if (moved) finishDrag();
+  else { setActive(targetItem); cancelDrag(); }
+};
+
+navInner.addEventListener("pointerup", onPointerUp);
+navInner.addEventListener("pointercancel", cancelDrag);
+navInner.addEventListener("click", (e) => e.preventDefault());
+</script>
+</body>
+</html>
