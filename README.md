@@ -1,13 +1,11 @@
 
-
-<p  align="center">
-  <img width="100" height="100" alt="Phoenix UNIFY logo depicting a book with a red bookmark sticking out." src="https://github.com/user-attachments/assets/3f0a7fe3-7519-472e-bfad-cd745dd0f1f0" />
-<p>
-
 # Phoenix UNIFY
 
 Repository for the app made to unify all 4 apps commonly used by PCA students.
 
+<p  align="center">
+  <img width="100" height="100" alt="Phoenix UNIFY logo depicting a book with a red bookmark sticking out." src="https://github.com/user-attachments/assets/3f0a7fe3-7519-472e-bfad-cd745dd0f1f0" />
+<p>
 
 ## Authors
 
