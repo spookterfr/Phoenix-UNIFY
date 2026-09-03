@@ -1,5 +1,5 @@
 
-<img width="1024" height="1024" alt="PHXunify2" src="https://github.com/user-attachments/assets/3f0a7fe3-7519-472e-bfad-cd745dd0f1f0" />
+<img width="256" height="256" alt="PHXunify2" src="https://github.com/user-attachments/assets/3f0a7fe3-7519-472e-bfad-cd745dd0f1f0" />
 
 # Phoenix UNIFY
 
