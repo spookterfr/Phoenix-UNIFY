@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+
+<!-- iOS "Add to Home Screen" support: makes it launch as a standalone app
+     (no Safari chrome, no URL bar) instead of opening in a normal tab -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Nav Demo" />
+<meta name="theme-color" content="#5aa0c2" />
+
+<title>Liquid glass nav</title>
+
+<link rel="stylesheet" href="styles.css" />
+<link rel="icon" type="image/png" href="PHXunify2.png">
+<link rel="apple-touch-icon" type="image/png" href="PHXunify2.png">
+</head>
+<body>
+  <div class="grid-bg"></div>
+
+  <div class="layout">
+    <main class="content">
+
+      <!-- HOME (the circle button) -->
+      <section class="page" data-page="home">
+        <h1>Home</h1>
+        <p class="lead">Pick a page below.</p>
+      </section>
+
+      <!-- PAGE 1: CALENDAR -->
+      <section class="page" data-page="page1" hidden>
+        <h1>Calendar</h1>
+        <p class="lead">Tap a day to add or edit a note for it.</p>
+        <div class="card">
+          <div class="cal-header">
+            <button class="cal-nav-btn" id="calPrev" type="button">‹</button>
+            <h2 id="calMonthLabel"></h2>
+            <button class="cal-nav-btn" id="calNext" type="button">›</button>
+          </div>
+          <div class="cal-grid" id="calGrid"><!-- day-of-week labels + day cells are built by JS --></div>
+          <div class="cal-editor" id="calEditor" hidden>
+            <label id="calEditorLabel">Note for the selected day</label>
+            <textarea id="calNoteInput" placeholder="Type a note for this day…"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAGE 2: GRADES -->
+      <section class="page" data-page="page2" hidden>
+        <h1>Grades</h1>
+        <p class="lead">Add a subject, pick its color, then list its assignments as rows.</p>
+        <div id="subjectsContainer"><!-- one .subject-card per subject, built by JS --></div>
+        <button class="subject-add" id="subjectAddBtn" type="button">+ Add subject</button>
+        <div class="grade-summary" id="gradeSummary">Overall: —</div>
+      </section>
+
+      <!-- PAGE 3: BLANK -->
+      <section class="page" data-page="page3" hidden>
+        <h1>Page 3</h1>
+        <div class="card blank-page">Nothing here yet.</div>
+      </section>
+
+      <!-- PAGE 4: BLANK -->
+      <section class="page" data-page="page4" hidden>
+        <h1>Page 4</h1>
+        <div class="card blank-page">Nothing here yet.</div>
+      </section>
+
+    </main>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav-group">
+      <a class="home-button active" href="#home" data-page="home">home</a>
+      <div class="bottom-nav">
+        <div class="nav-inner">
+          <a class="nav-item" href="#page1" data-page="page1">Calendar</a>
+          <a class="nav-item" href="#page2" data-page="page2">Grades</a>
+          <a class="nav-item" href="#page3" data-page="page3">Page 3</a>
+          <a class="nav-item" href="#page4" data-page="page4">Page 4</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+  <svg aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden;">
+    <filter id="liquid-glass-distortion" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.05" numOctaves="2" seed="4" result="noise"/>
+      <feGaussianBlur in="noise" stdDeviation="3" result="softNoise"/>
+      <feDisplacementMap in="SourceGraphic" in2="softNoise" scale="34" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
+
+<script src="script.js"></script>
+</body>
+</html>
