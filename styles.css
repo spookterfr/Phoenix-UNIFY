@@ -97,7 +97,7 @@ body {
 }
 .ghost-btn.solid { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
 
-/* HOME — WEEK STRIP */
+/* HOME — WEEK STRIP & NUTRISLICE MENU */
 .week-strip {
   display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
   gap: 0; margin-bottom: 18px; padding-bottom: 4px;
@@ -135,6 +135,14 @@ body {
 .next-item .what { flex: 1; min-width: 0; }
 .empty-note { color: var(--ink-faint); font-size: 14px; }
 
+.menu-card { margin-top: 16px; }
+.menu-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.menu-header h2 { margin: 0; font-size: 16px; }
+.menu-date-badge { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 4px 8px; border-radius: 8px; }
+.menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.menu-col h3 { margin: 0 0 6px; font-size: 14px; color: var(--ink-soft); }
+.menu-item-list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.4; color: var(--ink); }
+
 /* DAY SHEET */
 .day-sheet {
   position: fixed; inset: 0; z-index: 300;
@@ -164,6 +172,8 @@ body {
 }
 .sheet-section { margin-top: 24px; }
 .sheet-section h3 { margin: 0 0 10px; font-size: 16px; }
+.sheet-meal-group { font-size: 14px; margin-bottom: 6px; }
+.sheet-meal-group strong { color: var(--accent); }
 .reminder-row {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 12px; margin-bottom: 8px;
@@ -223,7 +233,13 @@ body {
 .cal-day .cal-dots { display: flex; gap: 3px; margin-top: 4px; }
 .cal-day .cal-dots span { width: 5px; height: 5px; border-radius: 50%; }
 
-/* GRADES */
+/* GRADES & STUDENTVUE */
+.studentvue-card { margin-bottom: 18px; }
+.studentvue-card h2 { margin: 0 0 12px; font-size: 16px; }
+.studentvue-form { display: flex; flex-wrap: wrap; gap: 8px; }
+.studentvue-form input { flex: 1; min-width: 140px; font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 8px; background: var(--field); border: 1px solid var(--hairline); color: var(--ink); }
+.sv-status { margin-top: 10px; font-size: 13px; color: var(--accent); }
+
 .subject-card { border-radius: 16px; overflow: hidden; margin-bottom: 16px; border: 1px solid var(--hairline); }
 .subject-header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; transition: background 0.15s ease; }
 .subject-header input[type="text"] {

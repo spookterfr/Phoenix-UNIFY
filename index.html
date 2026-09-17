@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="styles.css" />
 <link rel="icon" type="image/png" href="PHXunify2.png">
 <link rel="apple-touch-icon" type="image/png" href="PHXunify2.png">
+<script src="https://unpkg.com/studentvue.js/dist/studentvue.min.js"></script>
 </head>
 <body>
   <div class="grid-bg"></div>
@@ -41,6 +42,23 @@
           </div>
           <div id="upNextList"></div>
         </div>
+
+        <div class="card menu-card" id="homeMenuCard">
+          <div class="menu-header">
+            <h2>Today's Nutrislice Menu</h2>
+            <span class="menu-date-badge" id="menuTodayDate">Today</span>
+          </div>
+          <div class="menu-grid" id="homeMenuGrid">
+            <div class="menu-col">
+              <h3>Breakfast</h3>
+              <ul class="menu-item-list" id="homeBreakfastList"><li>Loading breakfast…</li></ul>
+            </div>
+            <div class="menu-col">
+              <h3>Lunch</h3>
+              <ul class="menu-item-list" id="homeLunchList"><li>Loading lunch…</li></ul>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="page" data-page="page1" hidden>
@@ -58,7 +76,19 @@
 
       <section class="page" data-page="page2" hidden>
         <h1>Grades</h1>
-        <p class="lead">Add a subject, pick its color, then list its assignments as rows.</p>
+        <p class="lead">Sync your StudentVUE gradebook or manually add subjects below.</p>
+        
+        <div class="card studentvue-card">
+          <h2>StudentVUE Sync</h2>
+          <div class="studentvue-form">
+            <input type="url" id="svUrl" placeholder="District URL" value="https://sis.pxu.org" />
+            <input type="text" id="svUser" placeholder="Student ID / Username" />
+            <input type="password" id="svPass" placeholder="Password" />
+            <button class="ghost-btn solid" id="svSyncBtn" type="button">Sync Grades</button>
+          </div>
+          <div class="sv-status" id="svStatus"></div>
+        </div>
+
         <div id="subjectsContainer"></div>
         <button class="subject-add" id="subjectAddBtn" type="button">+ Add subject</button>
         <div class="grade-summary" id="gradeSummary">Overall: —</div>
@@ -112,6 +142,13 @@
             </select>
             <button class="ghost-btn solid" id="reminderAdd" type="button">Add</button>
           </div>
+        </div>
+      </div>
+
+      <div class="sheet-section">
+        <h3>Nutrislice Meals</h3>
+        <div class="sheet-menu-box" id="sheetMenuContent">
+          <p class="empty-note">Loading menu for this day…</p>
         </div>
       </div>
     </div>

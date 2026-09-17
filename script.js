@@ -261,6 +261,81 @@ function remindersFor(key) {
   return reminders.filter((r) => r.key === key).sort((a, b) => a.time.localeCompare(b.time));
 }
 
+/* NUTRISLICE INTEGRATION */
+const NUTRISLICE_BASE = "https://phxhs.api.nutrislice.com/menu/api/weeks/school/phoenix-coding-academy/menu-type";
+const menuCache = {};
+
+async function fetchNutrisliceMenu(mealType, dateKeyStr) {
+  const [y, m, d] = dateKeyStr.split("-").map(Number);
+  const month1Based = m + 1;
+  const cacheKey = `${mealType}-${y}-${month1Based}-${d}`;
+  if (menuCache[cacheKey]) return menuCache[cacheKey];
+
+  try {
+    const res = await fetch(`${NUTRISLICE_BASE}/${mealType}/${y}/${month1Based}/${d}/?format=json`);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    
+    const formattedDate = `${y}-${String(month1Based).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dayData = data.days?.find(day => day.date === formattedDate);
+    
+    const items = dayData?.menu_items
+      ?.filter(item => item.food?.name)
+      .map(item => item.food.name) || [];
+
+    menuCache[cacheKey] = items;
+    return items;
+  } catch (err) {
+    console.warn(`Nutrislice fetch failed for ${mealType}:`, err);
+    return [];
+  }
+}
+
+async function renderHomeMenu() {
+  const now = new Date();
+  const dateKeyStr = keyOf(now);
+  
+  const breakfast = await fetchNutrisliceMenu("breakfast", dateKeyStr);
+  const lunch = await fetchNutrisliceMenu("lunch", dateKeyStr);
+
+  const bList = document.getElementById("homeBreakfastList");
+  const lList = document.getElementById("homeLunchList");
+
+  if (bList) {
+    bList.innerHTML = breakfast.length 
+      ? breakfast.map(i => `<li>${i}</li>`).join('') 
+      : '<li class="empty-note">No breakfast listed</li>';
+  }
+  if (lList) {
+    lList.innerHTML = lunch.length 
+      ? lunch.map(i => `<li>${i}</li>`).join('') 
+      : '<li class="empty-note">No lunch listed</li>';
+  }
+}
+
+async function renderSheetMenu(key) {
+  const menuContainer = document.getElementById("sheetMenuContent");
+  if (!menuContainer) return;
+
+  menuContainer.innerHTML = `<p class="empty-note">Fetching menu...</p>`;
+  const breakfast = await fetchNutrisliceMenu("breakfast", key);
+  const lunch = await fetchNutrisliceMenu("lunch", key);
+
+  if (!breakfast.length && !lunch.length) {
+    menuContainer.innerHTML = `<p class="empty-note">No meal data recorded for this date.</p>`;
+    return;
+  }
+
+  menuContainer.innerHTML = `
+    <div class="sheet-meal-group">
+      <strong>Breakfast:</strong> ${breakfast.join(", ") || "None listed"}
+    </div>
+    <div class="sheet-meal-group">
+      <strong>Lunch:</strong> ${lunch.join(", ") || "None listed"}
+    </div>
+  `;
+}
+
 /* WEEK STRIP */
 const weekStrip = document.getElementById("weekStrip");
 const weekLabel = document.getElementById("weekLabel");
@@ -383,6 +458,7 @@ function openDay(key) {
   sheetSub.textContent = DAY_NAMES[date.getDay()] + ", " + date.getFullYear();
   sheetNote.value = calendarNotes[key] || "";
   renderSheetReminders();
+  renderSheetMenu(key);
   daySheet.hidden = false;
   document.body.style.overflow = "hidden";
   sheetNote.focus({ preventScroll: true });
@@ -878,7 +954,61 @@ document.getElementById("subjectAddBtn").addEventListener("click", () => {
   saveState();
 });
 
+/* STUDENTVUE.JS API SYNC */
+document.getElementById("svSyncBtn")?.addEventListener("click", async () => {
+  const url = document.getElementById("svUrl").value.trim();
+  const username = document.getElementById("svUser").value.trim();
+  const password = document.getElementById("svPass").value;
+  const statusEl = document.getElementById("svStatus");
+
+  if (!url || !username || !password) {
+    statusEl.textContent = "Please enter your URL, Username, and Password.";
+    return;
+  }
+
+  statusEl.textContent = "Connecting to StudentVUE…";
+
+  try {
+    const sv = typeof StudentVue !== "undefined" ? StudentVue : window.studentvue;
+    if (!sv) throw new Error("StudentVUE.js library not detected.");
+
+    const client = await sv.login(url, { username, password });
+    statusEl.textContent = "Fetching gradebook…";
+    
+    const gradebookData = await client.getGradebook();
+    const courses = gradebookData.courses || gradebookData.Gradebook?.Courses?.Course || [];
+
+    if (!courses.length) {
+      statusEl.textContent = "No courses found in gradebook.";
+      return;
+    }
+
+    subjects = courses.map((course, idx) => {
+      const title = course.title || course.courseName || course.Title || `Subject ${idx + 1}`;
+      const assignments = course.marks?.[0]?.assignments || course.Marks?.Mark?.[0]?.Assignments?.Assignment || [];
+      return {
+        id: idx,
+        title: title,
+        color: ["#0a90b8", "#8a2be2", "#2e8b57", "#d2691e", "#dc143c"][idx % 5],
+        rows: assignments.map(asm => ({
+          label: asm.title || asm.Measure || "Assignment",
+          score: asm.pointsEarned ?? asm.Points ?? "",
+          max: asm.pointsPossible ?? asm.PointsPossible ?? ""
+        }))
+      };
+    });
+
+    saveState();
+    renderSubjects();
+    statusEl.textContent = `Successfully synced ${courses.length} subjects!`;
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = "Sync failed: " + (err.message || "Check your credentials or district server.");
+  }
+});
+
 renderSubjects();
 renderUpNext();
+renderHomeMenu();
 checkReminders();
 activateFromHash();
