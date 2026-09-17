@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Nav Demo" />
+<meta name="theme-color" content="#5aa0c2" id="themeColorMeta" />
+
+<title>Liquid glass nav</title>
+
+<link rel="stylesheet" href="styles.css" />
+<link rel="icon" type="image/png" href="PHXunify2.png">
+<link rel="apple-touch-icon" type="image/png" href="PHXunify2.png">
+</head>
+<body>
+  <div class="grid-bg"></div>
+
+  <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch theme">
+    <span id="themeToggleIcon">☾</span>
+  </button>
+
+  <div class="toast-stack" id="toastStack"></div>
+
+  <div class="layout">
+    <main class="content">
+
+      <section class="page" data-page="home">
+        <h1>Home</h1>
+        <p class="lead" id="weekLabel"></p>
+
+        <div class="week-strip" id="weekStrip"></div>
+
+        <div class="card home-next">
+          <div class="home-next-head">
+            <h2>Up next</h2>
+            <button class="ghost-btn" id="notifyBtn" type="button" hidden>Turn on alerts</button>
+          </div>
+          <div id="upNextList"></div>
+        </div>
+      </section>
+
+      <section class="page" data-page="page1" hidden>
+        <h1>Calendar</h1>
+        <p class="lead">Tap a day to open its note and reminders.</p>
+        <div class="card">
+          <div class="cal-header">
+            <button class="cal-nav-btn" id="calPrev" type="button">‹</button>
+            <h2 id="calMonthLabel"></h2>
+            <button class="cal-nav-btn" id="calNext" type="button">›</button>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
+      </section>
+
+      <section class="page" data-page="page2" hidden>
+        <h1>Grades</h1>
+        <p class="lead">Add a subject, pick its color, then list its assignments as rows.</p>
+        <div id="subjectsContainer"></div>
+        <button class="subject-add" id="subjectAddBtn" type="button">+ Add subject</button>
+        <div class="grade-summary" id="gradeSummary">Overall: —</div>
+      </section>
+
+      <section class="page" data-page="page3" hidden>
+        <h1>Map</h1>
+        <p class="lead">Drag to pan, pinch or scroll to zoom.</p>
+        <div class="card map-card" id="mapCard"></div>
+      </section>
+
+    </main>
+
+    <nav class="bottom-nav-group">
+      <a class="home-button active" href="#home" data-page="home">home</a>
+      <div class="bottom-nav">
+        <div class="nav-inner">
+          <a class="nav-item" href="#page1" data-page="page1">Calendar</a>
+          <a class="nav-item" href="#page2" data-page="page2">Grades</a>
+          <a class="nav-item" href="#page3" data-page="page3">Map</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+
+  <div class="day-sheet" id="daySheet" hidden>
+    <div class="day-sheet-inner">
+      <div class="day-sheet-head">
+        <div>
+          <h2 id="sheetTitle"></h2>
+          <span class="day-sheet-sub" id="sheetSub"></span>
+        </div>
+        <button class="sheet-close" id="sheetClose" type="button" aria-label="Close">✕</button>
+      </div>
+
+      <label class="field-label" for="sheetNote">Note</label>
+      <textarea id="sheetNote" placeholder="Write anything for this day…"></textarea>
+
+      <div class="sheet-section">
+        <h3>Reminders</h3>
+        <div id="sheetReminders"></div>
+        <div class="reminder-form">
+          <input type="text" id="reminderText" placeholder="What should I remind you about?" />
+          <div class="reminder-form-row">
+            <input type="time" id="reminderTime" value="09:00" />
+            <select id="reminderLead">
+              <option value="0">At the time</option>
+              <option value="10">10 min before</option>
+              <option value="60">1 hour before</option>
+              <option value="1440">1 day before</option>
+            </select>
+            <button class="ghost-btn solid" id="reminderAdd" type="button">Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <svg aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden;">
+    <filter id="liquid-glass-distortion" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.05" numOctaves="2" seed="4" result="noise"/>
+      <feGaussianBlur in="noise" stdDeviation="3" result="softNoise"/>
+      <feDisplacementMap in="SourceGraphic" in2="softNoise" scale="34" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBSmHhQ4IfO1KGIpy6nduysrXnkmaXcfiU&libraries=maps&v=beta" defer></script>
+<script src="script.js"></script>
+</body>
+</html>
