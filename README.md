@@ -25,4 +25,4 @@ We are making one **unified** app for the 4 above:
 
 **2.** Because it would be MUCH more convenient to have all of these essential apps in one, as opposed to scattered around and probably unused.
 
-**3.** Students should be able to access all apps without the inconvience of one not working
+**3.** Students should be able to access all apps without the inconvenience of one not working
