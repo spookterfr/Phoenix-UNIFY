@@ -451,3 +451,47 @@ body {
 }
 .bc-input:focus { outline: none; border-color: var(--accent); }
 @media (max-width: 600px) { .bc-btn { width: 38px; height: 38px; } }
+
+/* BARCODES — multiple codes, QR, full screen */
+.bc-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.bc-tabs::-webkit-scrollbar { display: none; }
+.bc-tab {
+  flex: 0 0 auto; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border: 1px solid var(--hairline); background: var(--glass-weak); color: var(--ink);
+  border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.bc-tab.active { background: var(--accent-soft); border-color: var(--accent); }
+.bc-tab.add { color: var(--accent); }
+.bc-tap { cursor: zoom-in; -webkit-tap-highlight-color: transparent; }
+.bc-display > div { max-width: 100%; }
+.bc-display .is-qr svg { width: min(100%, 300px); height: auto; }
+.bc-name { word-break: break-word; padding: 0 8px; }
+
+.bc-full {
+  position: fixed; inset: 0; z-index: 500; background: #fff; color: #111;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: calc(16px + env(safe-area-inset-top)) 3vw calc(16px + env(safe-area-inset-bottom));
+  cursor: zoom-out; animation: sheet-in 0.2s ease;
+}
+.bc-full[hidden] { display: none; }
+.bc-full-code { width: 100%; display: flex; justify-content: center; }
+.bc-full-code svg { width: 100%; height: auto; max-height: 72vh; }
+.bc-full-code.is-qr svg { width: min(94vw, 72vh); height: min(94vw, 72vh); max-height: none; }
+.bc-full-label { margin: 0; font-size: 20px; font-weight: 700; text-align: center; }
+.bc-full-label:empty { display: none; }
+.bc-full-hint { margin: 0; font-size: 12px; color: #777; }
+
+/* NAV BAR OVER BRIGHT CONTENT (dark mode): light glass bar + dark text.
+   Toggled by script.js when the map (or another bright element) is behind the bar. */
+.bottom-nav { transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.3s ease, border-color 0.3s ease; }
+html[data-theme="dark"] .bottom-nav-group.on-bright {
+  --ink: #0e1e2a;
+  --ink-soft: rgba(14, 30, 42, 0.72);
+  --ink-faint: rgba(14, 30, 42, 0.5);
+  --accent: #0a7fa6;
+  --glass: rgba(255, 255, 255, 0.66);
+  --glass-strong: rgba(255, 255, 255, 0.94);
+  --glass-weak: rgba(255, 255, 255, 0.4);
+  --hairline: rgba(255, 255, 255, 0.85);
+  --shadow: rgba(0, 0, 0, 0.32);
+}

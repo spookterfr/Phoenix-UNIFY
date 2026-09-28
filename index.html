@@ -168,19 +168,21 @@
     <div class="day-sheet-inner">
       <div class="day-sheet-head">
         <div>
-          <h2 id="bcTitle">My barcode</h2>
+          <h2 id="bcTitle">My codes</h2>
           <span class="day-sheet-sub" id="bcSub"></span>
         </div>
         <button class="sheet-close" id="bcClose" type="button" aria-label="Close">✕</button>
       </div>
 
-      <!-- Saved barcode -->
+      <!-- Saved codes -->
       <div class="bc-view" id="bcViewShow" hidden>
-        <div class="bc-display"><svg id="bcSvgShow"></svg></div>
+        <div class="bc-tabs" id="bcTabs"></div>
+        <div class="bc-display bc-tap" id="bcDisplay" role="button" tabindex="0" aria-label="Enlarge code to full screen">
+          <div id="bcShowHost"></div>
+        </div>
         <p class="bc-name" id="bcShowName"></p>
-        <p class="bc-hint">Turn your screen brightness up when scanning.</p>
+        <p class="bc-hint">Tap the code to fill the screen. Turn brightness up when scanning.</p>
         <div class="bc-actions">
-          <button class="ghost-btn solid" id="bcRescan" type="button">Scan a new one</button>
           <button class="ghost-btn" id="bcEdit" type="button">Edit</button>
           <button class="ghost-btn" id="bcDelete" type="button">Delete</button>
         </div>
@@ -192,7 +194,7 @@
           <video id="bcVideo" playsinline muted></video>
           <div class="bc-reticle"></div>
         </div>
-        <p class="bc-hint" id="bcScanStatus">Point the camera at the barcode.</p>
+        <p class="bc-hint" id="bcScanStatus">Point the camera at the code.</p>
         <div class="bc-actions">
           <button class="ghost-btn" id="bcManual" type="button">Type it in instead</button>
           <button class="ghost-btn" id="bcScanCancel" type="button">Cancel</button>
@@ -201,13 +203,13 @@
 
       <!-- Confirm / manual entry -->
       <div class="bc-view" id="bcViewEdit" hidden>
-        <label class="field-label" for="bcValue">Barcode number</label>
+        <label class="field-label" for="bcValue">Number or text</label>
         <input type="text" id="bcValue" class="bc-input" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" />
         <label class="field-label" for="bcFormat">Type</label>
         <select id="bcFormat" class="bc-input"></select>
         <label class="field-label" for="bcLabel">Name (optional)</label>
         <input type="text" id="bcLabel" class="bc-input" placeholder="e.g. Student ID, Library card" />
-        <div class="bc-display bc-preview"><svg id="bcSvgPreview"></svg></div>
+        <div class="bc-display bc-preview"><div id="bcPreviewHost"></div></div>
         <p class="bc-hint" id="bcEditError"></p>
         <div class="bc-actions">
           <button class="ghost-btn solid" id="bcSave" type="button">Save</button>
@@ -215,6 +217,13 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Full-screen code -->
+  <div class="bc-full" id="bcFull" hidden role="dialog" aria-label="Full screen code">
+    <div class="bc-full-code" id="bcFullHost"></div>
+    <p class="bc-full-label" id="bcFullLabel"></p>
+    <p class="bc-full-hint">Tap anywhere to close</p>
   </div>
 
   <svg aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden;">
@@ -227,6 +236,7 @@
 
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBSmHhQ4IfO1KGIpy6nduysrXnkmaXcfiU&libraries=maps,places,marker&v=beta" defer></script>
 <script src="jsbarcode.min.js"></script>
+<script src="qrcode.js"></script>
 <script src="lunch-specials.js"></script>
 <script src="script.js"></script>
 </body>

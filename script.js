@@ -13,11 +13,14 @@ const savedState = loadState();
 const calendarNotes = savedState.calendarNotes || {};
 let reminders = savedState.reminders || [];
 let busStop = savedState.busStop || null;
-let savedBarcode = savedState.barcode || null;   // { value, format, label }
+// saved codes: [{ id, value, format, label }]  (older saves kept a single `barcode`)
+let barcodes = Array.isArray(savedState.barcodes) ? savedState.barcodes
+  : (savedState.barcode ? [Object.assign({ id: "bc" + Date.now().toString(36) }, savedState.barcode)] : []);
+let barcodeActive = savedState.barcodeActive || null;
 
 function saveState() {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ calendarNotes, subjects, reminders, busStop, barcode: savedBarcode }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ calendarNotes, subjects, reminders, busStop, barcodes, barcodeActive }));
   } catch (e) {}
 }
 
@@ -1312,17 +1315,19 @@ activateFromHash();
 registerSW().then(() => syncPush());
 
 /* ==========================================================
-   BARCODE — scan (camera) or type a barcode once, then show a
-   digital copy rendered with JsBarcode whenever you need it.
+   BARCODES & QR CODES — scan (camera) or type a code once, keep
+   as many as you like, and show a digital copy whenever you need
+   it. Tap a code to fill the whole screen.
    ========================================================== */
 (function initBarcode() {
   const $ = (id) => document.getElementById(id);
-  const btn = $("barcodeBtn"), sheet = $("bcSheet");
+  const btn = $("barcodeBtn"), sheet = $("bcSheet"), full = $("bcFull");
   const views = { show: $("bcViewShow"), scan: $("bcViewScan"), edit: $("bcViewEdit") };
   const video = $("bcVideo"), scanStatus = $("bcScanStatus");
   const valueIn = $("bcValue"), formatSel = $("bcFormat"), labelIn = $("bcLabel"), errEl = $("bcEditError");
+  const showHost = $("bcShowHost"), previewHost = $("bcPreviewHost"), fullHost = $("bcFullHost");
 
-  // JsBarcode format  ->  label, BarcodeDetector name, ZXing name
+  // format key -> label, BarcodeDetector name, ZXing name.  Everything except QR is drawn by JsBarcode.
   const FORMATS = {
     CODE128: { label: "Code 128", det: "code_128", zx: "CODE_128" },
     CODE39:  { label: "Code 39",  det: "code_39",  zx: "CODE_39" },
@@ -1331,7 +1336,8 @@ registerSW().then(() => syncPush());
     UPC:     { label: "UPC-A",    det: "upc_a",    zx: "UPC_A" },
     UPCE:    { label: "UPC-E",    det: "upc_e",    zx: "UPC_E" },
     ITF:     { label: "ITF (Interleaved 2 of 5)", det: "itf", zx: "ITF" },
-    codabar: { label: "Codabar",  det: "codabar",  zx: "CODABAR" }
+    codabar: { label: "Codabar",  det: "codabar",  zx: "CODABAR" },
+    QR:      { label: "QR code",  det: "qr_code",  zx: "QR_CODE" }
   };
   Object.keys(FORMATS).forEach((k) => {
     const o = document.createElement("option");
@@ -1341,49 +1347,141 @@ registerSW().then(() => syncPush());
   const byDetector = {}, byZXing = {};
   Object.keys(FORMATS).forEach((k) => { byDetector[FORMATS[k].det] = k; byZXing[FORMATS[k].zx] = k; });
 
+  let activeId = barcodeActive;   // which saved code is showing
+  let editId = null;              // which saved code is being edited (null = adding a new one)
+
+  const activeItem = () => barcodes.find((b) => b.id === activeId) || barcodes[barcodes.length - 1] || null;
+  const fmtLabel = (f) => (FORMATS[f] ? FORMATS[f].label : "");
+
   function setView(name, title, sub) {
     Object.keys(views).forEach((k) => { views[k].hidden = k !== name; });
     $("bcTitle").textContent = title;
     $("bcSub").textContent = sub || "";
   }
 
-  /* Draw a barcode into an <svg>. Returns true if the value is valid for the format. */
-  function draw(svg, value, format) {
+  /* ---------- drawing ---------- */
+  function qrSvg(text) {
+    if (typeof qrcode !== "function") throw new Error("QR library missing");
+    if (qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs["UTF-8"]) {
+      qrcode.stringToBytes = qrcode.stringToBytesFuncs["UTF-8"];
+    }
+    const qr = qrcode(0, "M");            // auto size, medium error correction
+    qr.addData(text);
+    qr.make();
+    const n = qr.getModuleCount(), quiet = 4, size = n + quiet * 2;
+    let d = "";
+    for (let r = 0; r < n; r++) {
+      let c = 0;
+      while (c < n) {
+        if (qr.isDark(r, c)) {
+          const start = c;
+          while (c < n && qr.isDark(r, c)) c++;
+          d += "M" + (start + quiet) + " " + (r + quiet) + "h" + (c - start) + "v1h-" + (c - start) + "z";
+        } else c++;
+      }
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + size + " " + size +
+      '" shape-rendering="crispEdges" role="img"><rect width="' + size + '" height="' + size +
+      '" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>';
+  }
+
+  /* Draw a code into a host element. Returns true if the value is valid for the format. */
+  function render(host, value, format) {
+    host.innerHTML = "";
+    host.classList.toggle("is-qr", format === "QR");
+    if (format === "QR") {
+      try { host.innerHTML = qrSvg(value); return true; }
+      catch (e) { host.innerHTML = ""; return false; }
+    }
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     let ok = true;
-    svg.innerHTML = "";
     try {
       JsBarcode(svg, value, {
         format, width: 3, height: 110, margin: 8, displayValue: true, fontSize: 18,
         lineColor: "#000", background: "#fff",
         valid: (v) => { ok = v; }
       });
-    } catch (e) { ok = false; svg.innerHTML = ""; }
+    } catch (e) { ok = false; }
+    if (ok) host.appendChild(svg);
     return ok;
   }
 
-  /* ---------- wake lock (keeps the screen on while showing the code) ---------- */
+  /* ---------- wake lock (keeps the screen on while a code is showing) ---------- */
   let wakeLock = null;
   async function keepAwake() {
-    try { if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+    try { if ("wakeLock" in navigator && !wakeLock) wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
   }
   function releaseAwake() { try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null; }
 
-  /* ---------- saved view ---------- */
+  /* ---------- saved codes view ---------- */
+  function tabName(b) {
+    if (b.label) return b.label;
+    return b.value.length > 12 ? b.value.slice(0, 12) + "…" : b.value;
+  }
+
+  function renderTabs() {
+    const box = $("bcTabs");
+    box.innerHTML = "";
+    barcodes.forEach((b) => {
+      const t = document.createElement("button");
+      t.type = "button";
+      t.className = "bc-tab" + (b.id === activeId ? " active" : "");
+      t.textContent = tabName(b);
+      t.addEventListener("click", () => { activeId = b.id; persistActive(); showSaved(); });
+      box.appendChild(t);
+    });
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "bc-tab add";
+    add.textContent = "+ Add";
+    add.addEventListener("click", () => startScan());
+    box.appendChild(add);
+    const on = box.querySelector(".bc-tab.active");
+    if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest", inline: "center" });
+  }
+
+  function persistActive() { barcodeActive = activeId; saveState(); }
+
   function showSaved() {
     stopScan();
-    if (!savedBarcode) { startScan(); return; }
-    setView("show", savedBarcode.label || "My barcode", FORMATS[savedBarcode.format] ? FORMATS[savedBarcode.format].label : "");
-    if (!draw($("bcSvgShow"), savedBarcode.value, savedBarcode.format)) {
-      toast("Couldn't draw barcode", "The saved number isn't valid for that type. Tap Edit to fix it.");
+    closeFull();
+    const item = activeItem();
+    if (!item) { startScan(); return; }
+    activeId = item.id;
+    persistActive();
+    setView("show", item.label || "My code", fmtLabel(item.format));
+    renderTabs();
+    if (!render(showHost, item.value, item.format)) {
+      toast("Couldn't draw this code", "The saved value isn't valid for its type. Tap Edit to fix it.");
     }
-    $("bcShowName").textContent = savedBarcode.value;
+    $("bcShowName").textContent = item.value;
     keepAwake();
   }
 
+  /* ---------- full screen ---------- */
+  function openFull() {
+    const item = activeItem();
+    if (!item) return;
+    if (!render(fullHost, item.value, item.format)) return;
+    $("bcFullLabel").textContent = item.label || "";
+    full.hidden = false;
+    keepAwake();
+  }
+  function closeFull() {
+    full.hidden = true;
+    fullHost.innerHTML = "";
+  }
+  $("bcDisplay").addEventListener("click", openFull);
+  $("bcDisplay").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFull(); }
+  });
+  full.addEventListener("click", closeFull);
+
   /* ---------- edit / confirm view ---------- */
-  function openEdit(value, format, label, title) {
+  function openEdit(value, format, label, title, id) {
     stopScan();
-    setView("edit", title || "Save barcode", "Check it looks right, then save.");
+    editId = id || null;
+    setView("edit", title || "Save code", "Check it looks right, then save.");
     valueIn.value = value || "";
     formatSel.value = FORMATS[format] ? format : "CODE128";
     labelIn.value = label || "";
@@ -1392,9 +1490,13 @@ registerSW().then(() => syncPush());
   function updatePreview() {
     const v = valueIn.value.trim();
     errEl.textContent = "";
-    if (!v) { $("bcSvgPreview").innerHTML = ""; return false; }
-    const ok = draw($("bcSvgPreview"), v, formatSel.value);
-    if (!ok) errEl.textContent = "That number isn't valid for " + FORMATS[formatSel.value].label + ". Try another type.";
+    if (!v) { previewHost.innerHTML = ""; return false; }
+    const ok = render(previewHost, v, formatSel.value);
+    if (!ok) {
+      errEl.textContent = formatSel.value === "QR"
+        ? "That's too long for a QR code."
+        : "That value isn't valid for " + fmtLabel(formatSel.value) + ". Try another type.";
+    }
     return ok;
   }
   valueIn.addEventListener("input", updatePreview);
@@ -1403,12 +1505,22 @@ registerSW().then(() => syncPush());
   $("bcSave").addEventListener("click", () => {
     const v = valueIn.value.trim();
     if (!v || !updatePreview()) return;
-    savedBarcode = { value: v, format: formatSel.value, label: labelIn.value.trim() };
-    saveState();
+    const data = { value: v, format: formatSel.value, label: labelIn.value.trim() };
+    const existing = editId && barcodes.find((b) => b.id === editId);
+    if (existing) {
+      Object.assign(existing, data);
+      activeId = existing.id;
+    } else {
+      const item = Object.assign({ id: "bc" + Date.now().toString(36) }, data);
+      barcodes.push(item);
+      activeId = item.id;
+    }
+    editId = null;
+    persistActive();
     showSaved();
-    toast("Barcode saved", "Tap the barcode button any time to show it.");
+    toast("Saved", "Tap the code button any time to show it.");
   });
-  $("bcEditCancel").addEventListener("click", () => { savedBarcode ? showSaved() : closeSheet(); });
+  $("bcEditCancel").addEventListener("click", () => { barcodes.length ? showSaved() : closeSheet(); });
 
   /* ---------- scanning ---------- */
   let stream = null, scanning = false, scanTimer = null, detector = null, zx = null, canvas = null;
@@ -1461,11 +1573,12 @@ registerSW().then(() => syncPush());
 
   async function startScan() {
     releaseAwake();
-    setView("scan", "Scan barcode", "Hold steady, about a hand-width away.");
+    editId = null;
+    setView("scan", "Scan a code", "Barcodes and QR codes both work.");
     scanStatus.textContent = "Starting camera…";
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      toast("Camera unavailable", "Camera needs HTTPS. You can type the number instead.");
-      openEdit("", "CODE128", "", "Enter barcode");
+      toast("Camera unavailable", "Camera needs HTTPS. You can type the value instead.");
+      openEdit("", "CODE128", "", "Enter a code");
       return;
     }
     try {
@@ -1474,8 +1587,8 @@ registerSW().then(() => syncPush());
       await video.play();
     } catch (e) {
       stopScan();
-      toast("Couldn't open the camera", "Allow camera access, or type the number instead.");
-      openEdit("", "CODE128", "", "Enter barcode");
+      toast("Couldn't open the camera", "Allow camera access, or type the value instead.");
+      openEdit("", "CODE128", "", "Enter a code");
       return;
     }
 
@@ -1483,13 +1596,13 @@ registerSW().then(() => syncPush());
     try { decode = await makeDecoder(); }
     catch (e) {
       stopScan();
-      toast("Scanner couldn't load", "Check your connection, or type the number instead.");
-      openEdit("", "CODE128", "", "Enter barcode");
+      toast("Scanner couldn't load", "Check your connection, or type the value instead.");
+      openEdit("", "CODE128", "", "Enter a code");
       return;
     }
 
     scanning = true;
-    scanStatus.textContent = "Point the camera at the barcode.";
+    scanStatus.textContent = "Point the camera at the code.";
     const loop = async () => {
       if (!scanning) return;
       let hit = null;
@@ -1497,7 +1610,7 @@ registerSW().then(() => syncPush());
       if (!scanning) return;
       if (hit && hit.value) {
         if (navigator.vibrate) navigator.vibrate(60);
-        openEdit(hit.value, hit.format, savedBarcode ? savedBarcode.label : "", "Barcode found");
+        openEdit(hit.value, hit.format, "", "Code found");
         return;
       }
       scanTimer = setTimeout(loop, 120);
@@ -1513,15 +1626,19 @@ registerSW().then(() => syncPush());
     video.srcObject = null;
   }
 
-  $("bcManual").addEventListener("click", () => openEdit("", "CODE128", "", "Enter barcode"));
-  $("bcScanCancel").addEventListener("click", () => { savedBarcode ? showSaved() : closeSheet(); });
-  $("bcRescan").addEventListener("click", () => startScan());
-  $("bcEdit").addEventListener("click", () => openEdit(savedBarcode.value, savedBarcode.format, savedBarcode.label, "Edit barcode"));
+  $("bcManual").addEventListener("click", () => openEdit("", "CODE128", "", "Enter a code"));
+  $("bcScanCancel").addEventListener("click", () => { barcodes.length ? showSaved() : closeSheet(); });
+  $("bcEdit").addEventListener("click", () => {
+    const item = activeItem();
+    if (item) openEdit(item.value, item.format, item.label, "Edit code", item.id);
+  });
   $("bcDelete").addEventListener("click", () => {
-    if (!confirm("Delete your saved barcode?")) return;
-    savedBarcode = null;
-    saveState();
-    closeSheet();
+    const item = activeItem();
+    if (!item || !confirm("Delete \"" + tabName(item) + "\"?")) return;
+    barcodes.splice(barcodes.indexOf(item), 1);
+    activeId = barcodes.length ? barcodes[barcodes.length - 1].id : null;
+    persistActive();
+    barcodes.length ? showSaved() : closeSheet();
   });
 
   /* ---------- open / close ---------- */
@@ -1532,14 +1649,86 @@ registerSW().then(() => syncPush());
   }
   function closeSheet() {
     stopScan();
+    closeFull();
     releaseAwake();
     sheet.hidden = true;
     document.body.style.overflow = "";
   }
   btn.addEventListener("click", openSheet);
   $("bcClose").addEventListener("click", closeSheet);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !sheet.hidden) closeSheet(); });
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && !sheet.hidden && !views.show.hidden) keepAwake();
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!full.hidden) closeFull();
+    else if (!sheet.hidden) closeSheet();
   });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") { wakeLock = null; return; }   // the OS drops it when hidden
+    if (!sheet.hidden && (!views.show.hidden || !full.hidden)) keepAwake();
+  });
+})();
+
+/* ==========================================================
+   NAV CONTRAST — in dark mode, when the bottom bar floats over
+   the map (or any other bright surface) it switches to a light
+   glass bar with dark text. Elsewhere it keeps the dark look.
+   ========================================================== */
+(function initNavContrast() {
+  const group = document.querySelector(".bottom-nav-group");
+  if (!group || !document.elementsFromPoint) return;
+  const root = document.documentElement;
+  let queued = false;
+
+  function luminance(color) {
+    const m = /rgba?\(([^)]+)\)/.exec(color);
+    if (!m) return null;
+    const p = m[1].split(/[ ,\/]+/).filter(Boolean).map(parseFloat);
+    const a = p.length > 3 ? p[3] : 1;
+    if (a < 0.5) return null;                          // see-through: look at what's beneath
+    return (0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]) / 255;
+  }
+
+  function isBrightAt(x, y) {
+    const stack = document.elementsFromPoint(x, y);
+    for (const el of stack) {
+      if (group.contains(el)) continue;
+      if (el.closest(".toast-stack, .theme-toggle, .bc-btn")) continue;
+      if (el.tagName === "GMP-MAP" || el.closest("gmp-map")) return true;   // map tiles can't be sampled: treat as bright
+      const lum = luminance(getComputedStyle(el).backgroundColor);
+      if (lum !== null) return lum > 0.6;              // first solid surface decides
+    }
+    return false;
+  }
+
+  function update() {
+    queued = false;
+    const dark = root.getAttribute("data-theme") === "dark";
+    let bright = false;
+    if (dark) {
+      const r = group.getBoundingClientRect();
+      if (r.width > 0) {
+        let hits = 0;
+        for (const fy of [0.25, 0.75]) {
+          for (const fx of [0.08, 0.3, 0.5, 0.7, 0.92]) {
+            if (isBrightAt(r.left + r.width * fx, r.top + r.height * fy)) hits++;
+          }
+        }
+        bright = hits >= 2;
+      }
+    }
+    group.classList.toggle("on-bright", bright);
+  }
+  function schedule() {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(update);
+  }
+
+  window.addEventListener("scroll", schedule, { passive: true, capture: true });
+  window.addEventListener("touchmove", schedule, { passive: true });
+  window.addEventListener("resize", schedule);
+  window.addEventListener("hashchange", schedule);
+  document.addEventListener("click", () => setTimeout(schedule, 50));
+  new MutationObserver(schedule).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+  setInterval(schedule, 500);          // catches the map finishing loading, layout shifts, etc.
+  schedule();
 })();
