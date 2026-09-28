@@ -24,6 +24,10 @@
     <span id="themeToggleIcon">☾</span>
   </button>
 
+  <button class="theme-toggle bc-btn" id="barcodeBtn" type="button" aria-label="Open my barcode">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 5h2v14H3zM7 5h1v14H7zM10 5h3v14h-3zM15 5h1v14h-1zM18 5h1.5v14H18zM21 5h.5v14H21z"/></svg>
+  </button>
+
   <div class="toast-stack" id="toastStack"></div>
 
   <div class="layout">
@@ -160,6 +164,59 @@
     </div>
   </div>
 
+  <div class="day-sheet bc-sheet" id="bcSheet" hidden>
+    <div class="day-sheet-inner">
+      <div class="day-sheet-head">
+        <div>
+          <h2 id="bcTitle">My barcode</h2>
+          <span class="day-sheet-sub" id="bcSub"></span>
+        </div>
+        <button class="sheet-close" id="bcClose" type="button" aria-label="Close">✕</button>
+      </div>
+
+      <!-- Saved barcode -->
+      <div class="bc-view" id="bcViewShow" hidden>
+        <div class="bc-display"><svg id="bcSvgShow"></svg></div>
+        <p class="bc-name" id="bcShowName"></p>
+        <p class="bc-hint">Turn your screen brightness up when scanning.</p>
+        <div class="bc-actions">
+          <button class="ghost-btn solid" id="bcRescan" type="button">Scan a new one</button>
+          <button class="ghost-btn" id="bcEdit" type="button">Edit</button>
+          <button class="ghost-btn" id="bcDelete" type="button">Delete</button>
+        </div>
+      </div>
+
+      <!-- Camera -->
+      <div class="bc-view" id="bcViewScan" hidden>
+        <div class="bc-camera">
+          <video id="bcVideo" playsinline muted></video>
+          <div class="bc-reticle"></div>
+        </div>
+        <p class="bc-hint" id="bcScanStatus">Point the camera at the barcode.</p>
+        <div class="bc-actions">
+          <button class="ghost-btn" id="bcManual" type="button">Type it in instead</button>
+          <button class="ghost-btn" id="bcScanCancel" type="button">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Confirm / manual entry -->
+      <div class="bc-view" id="bcViewEdit" hidden>
+        <label class="field-label" for="bcValue">Barcode number</label>
+        <input type="text" id="bcValue" class="bc-input" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" />
+        <label class="field-label" for="bcFormat">Type</label>
+        <select id="bcFormat" class="bc-input"></select>
+        <label class="field-label" for="bcLabel">Name (optional)</label>
+        <input type="text" id="bcLabel" class="bc-input" placeholder="e.g. Student ID, Library card" />
+        <div class="bc-display bc-preview"><svg id="bcSvgPreview"></svg></div>
+        <p class="bc-hint" id="bcEditError"></p>
+        <div class="bc-actions">
+          <button class="ghost-btn solid" id="bcSave" type="button">Save</button>
+          <button class="ghost-btn" id="bcEditCancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <svg aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden;">
     <filter id="liquid-glass-distortion" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
       <feTurbulence type="fractalNoise" baseFrequency="0.012 0.05" numOctaves="2" seed="4" result="noise"/>
@@ -169,6 +226,7 @@
   </svg>
 
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBSmHhQ4IfO1KGIpy6nduysrXnkmaXcfiU&libraries=maps,places,marker&v=beta" defer></script>
+<script src="jsbarcode.min.js"></script>
 <script src="lunch-specials.js"></script>
 <script src="script.js"></script>
 </body>

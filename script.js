@@ -13,10 +13,11 @@ const savedState = loadState();
 const calendarNotes = savedState.calendarNotes || {};
 let reminders = savedState.reminders || [];
 let busStop = savedState.busStop || null;
+let savedBarcode = savedState.barcode || null;   // { value, format, label }
 
 function saveState() {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ calendarNotes, subjects, reminders, busStop }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ calendarNotes, subjects, reminders, busStop, barcode: savedBarcode }));
   } catch (e) {}
 }
 
@@ -63,6 +64,8 @@ const allNavLinks = [homeButton, ...navItems];
 function showPage(name) {
   pages.forEach((p) => { p.hidden = p.dataset.page !== name; });
   allNavLinks.forEach((l) => l.classList.toggle("active", l.dataset.page === name));
+  const bcBtn = document.getElementById("barcodeBtn");
+  if (bcBtn) bcBtn.hidden = name !== "home";
   if (name === "home") scrollToCurrentWeek(false);
 }
 
@@ -1307,3 +1310,236 @@ activateFromHash();
 
 // Register the service worker and (if alerts are already allowed) refresh the push schedule
 registerSW().then(() => syncPush());
+
+/* ==========================================================
+   BARCODE — scan (camera) or type a barcode once, then show a
+   digital copy rendered with JsBarcode whenever you need it.
+   ========================================================== */
+(function initBarcode() {
+  const $ = (id) => document.getElementById(id);
+  const btn = $("barcodeBtn"), sheet = $("bcSheet");
+  const views = { show: $("bcViewShow"), scan: $("bcViewScan"), edit: $("bcViewEdit") };
+  const video = $("bcVideo"), scanStatus = $("bcScanStatus");
+  const valueIn = $("bcValue"), formatSel = $("bcFormat"), labelIn = $("bcLabel"), errEl = $("bcEditError");
+
+  // JsBarcode format  ->  label, BarcodeDetector name, ZXing name
+  const FORMATS = {
+    CODE128: { label: "Code 128", det: "code_128", zx: "CODE_128" },
+    CODE39:  { label: "Code 39",  det: "code_39",  zx: "CODE_39" },
+    EAN13:   { label: "EAN-13",   det: "ean_13",   zx: "EAN_13" },
+    EAN8:    { label: "EAN-8",    det: "ean_8",    zx: "EAN_8" },
+    UPC:     { label: "UPC-A",    det: "upc_a",    zx: "UPC_A" },
+    UPCE:    { label: "UPC-E",    det: "upc_e",    zx: "UPC_E" },
+    ITF:     { label: "ITF (Interleaved 2 of 5)", det: "itf", zx: "ITF" },
+    codabar: { label: "Codabar",  det: "codabar",  zx: "CODABAR" }
+  };
+  Object.keys(FORMATS).forEach((k) => {
+    const o = document.createElement("option");
+    o.value = k; o.textContent = FORMATS[k].label;
+    formatSel.appendChild(o);
+  });
+  const byDetector = {}, byZXing = {};
+  Object.keys(FORMATS).forEach((k) => { byDetector[FORMATS[k].det] = k; byZXing[FORMATS[k].zx] = k; });
+
+  function setView(name, title, sub) {
+    Object.keys(views).forEach((k) => { views[k].hidden = k !== name; });
+    $("bcTitle").textContent = title;
+    $("bcSub").textContent = sub || "";
+  }
+
+  /* Draw a barcode into an <svg>. Returns true if the value is valid for the format. */
+  function draw(svg, value, format) {
+    let ok = true;
+    svg.innerHTML = "";
+    try {
+      JsBarcode(svg, value, {
+        format, width: 3, height: 110, margin: 8, displayValue: true, fontSize: 18,
+        lineColor: "#000", background: "#fff",
+        valid: (v) => { ok = v; }
+      });
+    } catch (e) { ok = false; svg.innerHTML = ""; }
+    return ok;
+  }
+
+  /* ---------- wake lock (keeps the screen on while showing the code) ---------- */
+  let wakeLock = null;
+  async function keepAwake() {
+    try { if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+  }
+  function releaseAwake() { try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null; }
+
+  /* ---------- saved view ---------- */
+  function showSaved() {
+    stopScan();
+    if (!savedBarcode) { startScan(); return; }
+    setView("show", savedBarcode.label || "My barcode", FORMATS[savedBarcode.format] ? FORMATS[savedBarcode.format].label : "");
+    if (!draw($("bcSvgShow"), savedBarcode.value, savedBarcode.format)) {
+      toast("Couldn't draw barcode", "The saved number isn't valid for that type. Tap Edit to fix it.");
+    }
+    $("bcShowName").textContent = savedBarcode.value;
+    keepAwake();
+  }
+
+  /* ---------- edit / confirm view ---------- */
+  function openEdit(value, format, label, title) {
+    stopScan();
+    setView("edit", title || "Save barcode", "Check it looks right, then save.");
+    valueIn.value = value || "";
+    formatSel.value = FORMATS[format] ? format : "CODE128";
+    labelIn.value = label || "";
+    updatePreview();
+  }
+  function updatePreview() {
+    const v = valueIn.value.trim();
+    errEl.textContent = "";
+    if (!v) { $("bcSvgPreview").innerHTML = ""; return false; }
+    const ok = draw($("bcSvgPreview"), v, formatSel.value);
+    if (!ok) errEl.textContent = "That number isn't valid for " + FORMATS[formatSel.value].label + ". Try another type.";
+    return ok;
+  }
+  valueIn.addEventListener("input", updatePreview);
+  formatSel.addEventListener("change", updatePreview);
+
+  $("bcSave").addEventListener("click", () => {
+    const v = valueIn.value.trim();
+    if (!v || !updatePreview()) return;
+    savedBarcode = { value: v, format: formatSel.value, label: labelIn.value.trim() };
+    saveState();
+    showSaved();
+    toast("Barcode saved", "Tap the barcode button any time to show it.");
+  });
+  $("bcEditCancel").addEventListener("click", () => { savedBarcode ? showSaved() : closeSheet(); });
+
+  /* ---------- scanning ---------- */
+  let stream = null, scanning = false, scanTimer = null, detector = null, zx = null, canvas = null;
+
+  function loadZXing() {
+    if (window.ZXing) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js";
+      s.onload = resolve; s.onerror = () => reject(new Error("zxing"));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function makeDecoder() {
+    if ("BarcodeDetector" in window) {
+      try {
+        const supported = await BarcodeDetector.getSupportedFormats();
+        const wanted = Object.keys(byDetector).filter((f) => supported.includes(f));
+        if (wanted.length) {
+          detector = new BarcodeDetector({ formats: wanted });
+          return async () => {
+            const found = await detector.detect(video);
+            if (!found.length) return null;
+            return { value: found[0].rawValue, format: byDetector[found[0].format] || "CODE128" };
+          };
+        }
+      } catch (e) {}
+    }
+    // Fallback (e.g. iPhone Safari): ZXing, loaded only when needed
+    await loadZXing();
+    const Z = window.ZXing;
+    const hints = new Map();
+    hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, Object.keys(byZXing).map((n) => Z.BarcodeFormat[n]));
+    hints.set(Z.DecodeHintType.TRY_HARDER, true);
+    zx = new Z.MultiFormatReader();
+    zx.setHints(hints);
+    canvas = document.createElement("canvas");
+    return async () => {
+      if (!video.videoWidth) return null;
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      canvas.getContext("2d", { willReadFrequently: true }).drawImage(video, 0, 0);
+      try {
+        const bmp = new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(canvas)));
+        const r = zx.decode(bmp);
+        return { value: r.getText(), format: byZXing[Z.BarcodeFormat[r.getBarcodeFormat()]] || "CODE128" };
+      } catch (e) { return null; }   // NotFoundException = nothing in this frame
+    };
+  }
+
+  async function startScan() {
+    releaseAwake();
+    setView("scan", "Scan barcode", "Hold steady, about a hand-width away.");
+    scanStatus.textContent = "Starting camera…";
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast("Camera unavailable", "Camera needs HTTPS. You can type the number instead.");
+      openEdit("", "CODE128", "", "Enter barcode");
+      return;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      video.srcObject = stream;
+      await video.play();
+    } catch (e) {
+      stopScan();
+      toast("Couldn't open the camera", "Allow camera access, or type the number instead.");
+      openEdit("", "CODE128", "", "Enter barcode");
+      return;
+    }
+
+    let decode;
+    try { decode = await makeDecoder(); }
+    catch (e) {
+      stopScan();
+      toast("Scanner couldn't load", "Check your connection, or type the number instead.");
+      openEdit("", "CODE128", "", "Enter barcode");
+      return;
+    }
+
+    scanning = true;
+    scanStatus.textContent = "Point the camera at the barcode.";
+    const loop = async () => {
+      if (!scanning) return;
+      let hit = null;
+      try { hit = await decode(); } catch (e) {}
+      if (!scanning) return;
+      if (hit && hit.value) {
+        if (navigator.vibrate) navigator.vibrate(60);
+        openEdit(hit.value, hit.format, savedBarcode ? savedBarcode.label : "", "Barcode found");
+        return;
+      }
+      scanTimer = setTimeout(loop, 120);
+    };
+    loop();
+  }
+
+  function stopScan() {
+    scanning = false;
+    clearTimeout(scanTimer);
+    if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+    try { video.pause(); } catch (e) {}
+    video.srcObject = null;
+  }
+
+  $("bcManual").addEventListener("click", () => openEdit("", "CODE128", "", "Enter barcode"));
+  $("bcScanCancel").addEventListener("click", () => { savedBarcode ? showSaved() : closeSheet(); });
+  $("bcRescan").addEventListener("click", () => startScan());
+  $("bcEdit").addEventListener("click", () => openEdit(savedBarcode.value, savedBarcode.format, savedBarcode.label, "Edit barcode"));
+  $("bcDelete").addEventListener("click", () => {
+    if (!confirm("Delete your saved barcode?")) return;
+    savedBarcode = null;
+    saveState();
+    closeSheet();
+  });
+
+  /* ---------- open / close ---------- */
+  function openSheet() {
+    sheet.hidden = false;
+    document.body.style.overflow = "hidden";
+    showSaved();
+  }
+  function closeSheet() {
+    stopScan();
+    releaseAwake();
+    sheet.hidden = true;
+    document.body.style.overflow = "";
+  }
+  btn.addEventListener("click", openSheet);
+  $("bcClose").addEventListener("click", closeSheet);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !sheet.hidden) closeSheet(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && !sheet.hidden && !views.show.hidden) keepAwake();
+  });
+})();
