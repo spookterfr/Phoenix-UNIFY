@@ -1,0 +1,12 @@
+{
+  "name": "Phoenix UNIFY",
+  "short_name": "UNIFY",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d1a24",
+  "theme_color": "#5aa0c2",
+  "icons": [
+    { "src": "PHXunify2.png", "sizes": "any", "type": "image/png", "purpose": "any" }
+  ]
+}
