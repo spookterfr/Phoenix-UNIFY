@@ -423,7 +423,6 @@ body {
 /* BARCODE */
 .bc-btn { right: auto; left: 16px; display: flex; align-items: center; justify-content: center; padding: 0; }
 .bc-btn[hidden] { display: none; }
-.page[data-page="home"] h1 { padding-left: 54px; }
 .bc-display {
   background: #fff; border-radius: 16px; padding: 18px 12px;
   display: flex; justify-content: center; overflow: hidden;
@@ -450,7 +449,10 @@ body {
   font: inherit; font-size: 16px;
 }
 .bc-input:focus { outline: none; border-color: var(--accent); }
-@media (max-width: 600px) { .bc-btn { width: 38px; height: 38px; } }
+@media (max-width: 600px) {
+  .bc-btn { width: 38px; height: 38px; }
+  .page[data-page="home"] h1 { padding-left: 50px; }
+}
 
 /* BARCODES — multiple codes, QR, full screen */
 .bc-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
